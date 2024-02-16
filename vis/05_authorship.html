@@ -131,7 +131,7 @@
             .style("transform", `translate(${dimensions.margin.left}px, ${dimensions.margin.top}px)`);
 
       // ## Access data
-      const fulldata = await d3.csv("authorship.csv");
+      const fulldata = await d3.csv("../data/authorship.csv");
 
       const dataset = fulldata.filter(d => d.discipline === "allDisciplines")
 

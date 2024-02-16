@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matilda 05</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&display=swap" rel="stylesheet">
+</head>
+<style>
+
+  :root {
+    --text-color: #595959;
+    --female-color: #824670;
+    --male-color: #8BB174;
+    --bg-color: #F6F5F1; 
+  }
+
+  * {
+      font-family: "Inter", sans-serif;
+      background-color: var(--bg-color);
+    }
+
+  .axis {
+    color: var(--text-color);
+  }
+
+  .axislabel {
+    font-size: 1.1em;
+    font-weight: 600;
+    fill: var(--text-color);
+  }
+
+  .annotation-label {
+    font-family: "Source Serif 4", serif !important;
+    font-style: italic;
+    font-size: .9em;
+    white-space: pre-wrap;
+    fill: var(--text-color);
+    paint-order: stroke;
+    stroke: var(--bg-color);
+    stroke-width: 3px;
+    stroke-linecap: butt;
+    stroke-linejoin: miter;
+  }
+
+  .viz {
+    background-color: var(--bg-color);
+  }
+
+  .header {
+    background-color: var(--bg-color);
+  }
+
+  .figuretitle {
+    font-family: "Source Serif 4", serif !important;
+    font-size: 1.5em;
+    font-style: italic;
+    fill: var(--text-color);
+  }
+
+  .tooltip {
+        opacity: 0;
+        position: absolute;
+        font-size: 0.7em;
+        color: var(--female-color);
+        font-weight: 600;
+        background-color: var(--bg-color);
+        padding: 2px;
+        z-index: 9999;    
+    }
+
+</style>
+<body>
+
+  <div id="header" class="header"></div>
+
+  <div id="my_dataviz" class="viz">
+    <div id="tooltip" class="tooltip">
+        <span id="value"></span>
+    </div>
+  </div>
+
+
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script>
+
+    async function drawChart() {
+
+      // ## Set the dimensions and margins of the graph
+      const width = 1080*0.9 //900 by 0.6
+      let dimensions = {
+          width: width,
+          height: width*0.55,
+          margin: {top: 50, right: 20, bottom: 80, left: 20}
+      }
+
+      dimensions.boundedWidth = dimensions.width
+          - dimensions.margin.left
+          - dimensions.margin.right
+      dimensions.boundedHeight = dimensions.height
+          - dimensions.margin.top
+          - dimensions.margin.bottom
+
+      // ## Draw Header
+      const header = d3.select("#header")
+        .append('svg')
+          .attr('width', dimensions.width*3)
+          .attr('height', 50)
+        .append('g')
+         .attr('transform', `translate(${dimensions.margin.left},${dimensions.margin.top})`);
+
+      const figureTitle = header.append("text")
+          .attr("class", "figuretitle")
+          .attr("x", 0)
+          .attr("y", -10)
+          .text("Percentage of female journal authors across various disciplines and countries");
+      
+      // ## Draw canvas
+      const svg = d3.select("#my_dataviz")
+        .append('svg')
+        .attr('width', dimensions.width)
+        .attr('height', dimensions.height)
+
+      const bounds = svg.append("g")
+            .style("transform", `translate(${dimensions.margin.left}px, ${dimensions.margin.top}px)`);
+
+      // ## Access data
+      const fulldata = await d3.csv("authorship.csv");
+
+      const dataset = fulldata.filter(d => d.discipline === "allDisciplines")
+
+      const xAccessor = d => d.country;
+      const yAccessor = d => parseFloat(d.genderRatios);
+      // const colorAccessor = d => d.Gender;
+
+      // ## Create scales
+      const xScale = d3.scaleBand()
+          .domain(d3.groupSort(dataset, ([d]) => -d.genderRatios, xAccessor))
+          .range([40, dimensions.boundedWidth - 20])
+          .padding(0.1);
+
+      const yScale = d3.scaleLinear()
+          .domain([0, 100])
+          .range([dimensions.boundedHeight, 0])
+          .nice();
+
+      // ## Draw peripherals
+        
+      // X Axis, static
+      const xAxis = bounds.append("g")
+        .attr("class", "axis")
+        .style("transform", `translateY(${dimensions.boundedHeight}px)`)
+        .call(d3.axisBottom(xScale)
+          .ticks(8))
+        .call(g => g.select(".domain")
+          .attr("display", "none"))
+        .selectAll("text")
+          .style("text-anchor", "end")
+          .attr("dx", "-.8em")
+          .attr("dy", ".15em")
+          .attr("transform", "rotate(-45)");
+
+      const xAxisLabel = xAxis.append("text")
+          .attr("class", "axislabel")
+          .attr("x", dimensions.boundedWidth)
+          .attr("y", 35)
+          .style("text-anchor", "end")
+          .text("Countries");
+      
+      // Y Axis, static
+      const yAxis = bounds.append("g")
+          .attr("class", "axis")
+          .call(d3.axisRight(yScale)
+              //.ticks()
+              .tickSize(dimensions.boundedWidth)
+              .tickFormat(d => d + "%"))
+          .call(g => g.select(".domain")
+            .attr("display", "none"))
+          .call(g => g.selectAll(".tick:not(:first-of-type) line")
+              .attr("stroke-opacity", 0.2)) 
+          .call(g => g.selectAll(".tick:first-of-type line")
+              .attr("stroke-width", 2))
+          .call(g => g.selectAll(".tick text")
+              .attr("x", 4)
+              .attr("dy", -5));
+            
+      const yAxisLabel = yAxis.append("text")
+          .attr("class", "axislabel")
+          .attr("x", 0)
+          .attr("y", -25)
+          .style("text-anchor", "start")
+          .text("% Female authors");
+
+      // ## Draw data
+      const bars = bounds.selectAll(".bar")
+        .data(dataset)
+        .enter()
+        .append('rect')
+        .attr('class', "bar")
+        .attr('x', d => xScale(xAccessor(d)))
+        .attr('y', d => yScale(yAccessor(d)))
+        .attr('width', xScale.bandwidth())
+        .attr("height", d => dimensions.boundedHeight - yScale(yAccessor(d)))
+        .style('fill', "#824670")
+        .style("opacity", 0.8)
+        .on("mouseover", onMouseOver)
+        .on("mousemove", onMouseMove)
+        .on("mouseout", onMouseOut);
+
+
+      // ## Annotations
+
+      // -- Meanline
+      // Calculate mean
+      const meanValue = d3.mean(dataset, yAccessor);
+      console.log(meanValue)
+
+      // Render mean line
+      bounds.append("line")
+        .attr("class", "mean-line")
+        .attr("x1", 0)
+        .attr("y1", yScale(meanValue))
+        .attr("x2", dimensions.boundedWidth)
+        .attr("y2", yScale(meanValue))
+        .attr("stroke", "#450F35")
+        .attr("stroke-width", 2);
+
+
+      // -- Annotation
+      const label = {x: 200,y: 155}
+      const subjectDataPoint = { x: 120, y: 200 };
+      const distance = 30;
+      const [controlPointX, controlPointY] =
+        getQuadraticBezierCurveControlPoint(
+          label.x,
+          label.y,
+          subjectDataPoint.x,
+          subjectDataPoint.y,
+          distance
+        );
+
+      const annotText = "In most countries, less than 50% of\njournal authors were women."
+
+      const lines = annotText.split('\n');
+      const lineHeight = 15; // Adjust as needed
+      lines.forEach((line, index) => {
+        bounds.append('text')
+          .attr("class", "annotation-label")
+          .attr('x', label.x)
+          .attr('y', label.y + 10 + index * lineHeight) // Move down by lineHeight for each line
+          .attr("text-anchor", "start")
+          .text(line);
+      })
+
+      bounds.append("path")
+        .attr("class", "annotation-connector")
+        .attr("fill", "none")
+        .attr("stroke", "#595959")
+        .attr(
+          "d",
+          `M${label.x} ${label.y}
+          Q${controlPointX},${controlPointY} ${subjectDataPoint.x},${subjectDataPoint.y}`
+        );
+
+      bounds.append('text')
+        .attr("class", "annotation-label")
+        .attr('x', dimensions.boundedWidth)
+        .attr('y', 230)
+        .attr("text-anchor", "end")
+        .style("font-size", "0.9em")
+        .text("Average across countries: 39%");
+
+      
+      // ## Interactions
+      // -- Tooltip
+
+      const tooltip = d3.select("#tooltip")
+            .attr("class", "tooltip")
+            
+      function onMouseOver(e, d) {
+          const [x, y] = d3.pointer(e);
+          tooltip
+              .transition().duration("20")
+              .style("opacity", 1)
+              .text(d.genderRatios)
+              .style("left", (e.pageX + 10) + "px")
+              .style("top", (e.pageY + 10) + "px");
+              
+          d3.select(this)
+            .style("opacity", 1);
+          }
+          
+
+      function onMouseMove(e, d) {
+          const [x, y] = d3.pointer(e);
+          tooltip
+              .style("left", (e.pageX + 10) + "px")
+              .style("top", (e.pageY + 10) + "px")
+          }
+
+      function onMouseOut(e, d) {
+          tooltip
+              .transition().duration("100")
+              .style("opacity", 0);
+          d3.select(this)
+            .style("opacity", .8);
+      }
+
+      // ## Helper
+
+      //Function to calculator bezier curve
+
+      function getQuadraticBezierCurveControlPoint(
+        startX,
+        startY,
+        endX,
+        endY,
+        distance
+      ) {
+        const midPointX = (startX + endX) / 2;
+        const midPointY = (startY + endY) / 2;
+        const angle = Math.atan2(endY - startY, endX - startX);
+        const controlPointX = -Math.sin(angle) * distance + midPointX;
+        const controlPointY = Math.cos(angle) * distance + midPointY;
+        return [controlPointX, controlPointY];
+      }
+      
+    }
+
+    drawChart()
+  </script>
+</body>
+</html>
